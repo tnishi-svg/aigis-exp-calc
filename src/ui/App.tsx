@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { allowedTiers, dropUnitExp, maxDropLevel, type ClassTier, type DropUnit } from '../core/dropUnit'
-import { applySaliet } from '../core/exp'
+import { clampDigits } from '../core/clampInput'
+import { MERGE_SLOTS, applySaliet, maxNextInput } from '../core/exp'
 import { evaluateFeeder } from '../core/feeder'
 import { findFragment } from '../core/fragment'
 import { dropUnitLabel, rarityName, solve, type ForcedItem, type SolveInput } from '../core/solver'
@@ -75,6 +76,7 @@ export default function App() {
   const awakenings = availableAwakenings(st.rarity)
   const awakening = awakenings.includes(st.awakening) ? st.awakening : 'none'
   const cap = MAX_LEVEL[st.rarity][awakening] ?? 1
+  const nextMax = maxNextInput(st.rarity, Number(st.level), cap)
 
   const forced: ForcedItem[] = useMemo(
     () => [
@@ -113,6 +115,11 @@ export default function App() {
     const next = aw.includes(st.awakening) ? st.awakening : 'none'
     set({ rarity, awakening: next, target: String(MAX_LEVEL[rarity][next] ?? 1), level: '1', next: '' })
   }
+  // Lv を変えたら、入力済みの「次のレベルまで」も新しい Lv の上限に収める
+  const onLevel = (level: string) => {
+    const max = maxNextInput(st.rarity, Number(level), cap)
+    set({ level, next: clampDigits(st.next, max) })
+  }
   const onAwakening = (a: Awakening) =>
     set({ awakening: a, target: String(MAX_LEVEL[st.rarity][a] ?? 1), level: '1', next: '' })
 
@@ -149,35 +156,33 @@ export default function App() {
           <label>
             {MSG.fields.level}
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
-              max={cap}
+              maxLength={String(cap).length}
               value={st.level}
-              onChange={(e) => set({ level: e.target.value })}
+              onChange={(e) => onLevel(clampDigits(e.target.value, cap))}
             />
           </label>
           <label>
             {MSG.fields.next}
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={0}
+              maxLength={String(nextMax).length}
               placeholder={MSG.fields.nextHint}
               value={st.next}
-              onChange={(e) => set({ next: e.target.value })}
+              onChange={(e) => set({ next: clampDigits(e.target.value, nextMax) })}
             />
           </label>
         </div>
         <label>
           {MSG.fields.target}
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={1}
-            max={cap}
+            maxLength={String(cap).length}
             value={st.target}
-            onChange={(e) => set({ target: e.target.value })}
+            onChange={(e) => set({ target: clampDigits(e.target.value, cap) })}
           />
         </label>
       </section>
@@ -243,12 +248,13 @@ export default function App() {
               </small>
             </span>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={0}
-              max={10}
+              maxLength={2}
               value={st.forcedFixed[m.id] ?? 0}
-              onChange={(e) => set({ forcedFixed: { ...st.forcedFixed, [m.id]: Number(e.target.value) } })}
+              onChange={(e) =>
+                set({ forcedFixed: { ...st.forcedFixed, [m.id]: Number(clampDigits(e.target.value, MERGE_SLOTS) || 0) } })
+              }
             />
           </label>
         ))}
@@ -259,13 +265,16 @@ export default function App() {
               <small className="exp">{MSG.forced.perUnit(dropUnitExp(d, { saliet: st.saliet, boost: st.boost }))}</small>
             </span>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
-              max={10}
+              maxLength={2}
               value={d.count}
               onChange={(e) =>
-                set({ forcedDrops: st.forcedDrops.map((x, j) => (j === i ? { ...x, count: Number(e.target.value) } : x)) })
+                set({
+                  forcedDrops: st.forcedDrops.map((x, j) =>
+                    j === i ? { ...x, count: Math.max(1, Number(clampDigits(e.target.value, MERGE_SLOTS) || 1)) } : x,
+                  ),
+                })
               }
             />
             <button type="button" className="secondary" onClick={() => set({ forcedDrops: st.forcedDrops.filter((_, j) => j !== i) })}>
@@ -455,12 +464,11 @@ function DropFields({ value, onChange }: { value: DropForm; onChange: (d: DropFo
       <label>
         {MSG.fields.unitLevel}
         <input
-          type="number"
+          type="text"
           inputMode="numeric"
-          min={1}
-          max={max}
+          maxLength={String(max).length}
           value={value.level}
-          onChange={(e) => onChange({ ...value, level: Math.min(max, Math.max(1, Number(e.target.value) || 1)) })}
+          onChange={(e) => onChange({ ...value, level: Math.max(1, Number(clampDigits(e.target.value, max) || 1)) })}
         />
       </label>
       <label className="check">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cumExp, currentExpFromInput, levelFromExp, mergeCost, remainingToNext } from './exp'
+import { cumExp, currentExpFromInput, levelFromExp, maxNextInput, mergeCost, remainingToNext } from './exp'
 
 describe('経験値テーブル(Wiki の累計経験値と一致)', () => {
   it.each([
@@ -62,5 +62,22 @@ describe('入力からの逆算', () => {
     if (!r.ok) throw new Error('unexpected')
     expect(levelFromExp('platinum', r.exp, 70)).toBe(36)
     expect(remainingToNext('platinum', r.exp, 70)).toBe(433)
+  })
+})
+
+describe('「次のレベルまで」の入力上限', () => {
+  it('現在 Lv の必要経験値が上限になる', () => {
+    expect(maxNextInput('gold', 39, 60)).toBe(cumExp('gold', 40) - cumExp('gold', 39))
+    expect(maxNextInput('gold', 1, 60)).toBe(42)
+  })
+  it('上限 Lv や不正な Lv では 0', () => {
+    expect(maxNextInput('gold', 60, 60)).toBe(0)
+    expect(maxNextInput('gold', 0, 60)).toBe(0)
+    expect(maxNextInput('gold', Number.NaN, 60)).toBe(0)
+  })
+  it('上限ちょうどの値は currentExpFromInput でも通る', () => {
+    const max = maxNextInput('platinum', 36, 70)
+    expect(currentExpFromInput('platinum', 'none', 36, max).ok).toBe(true)
+    expect(currentExpFromInput('platinum', 'none', 36, max + 1)).toEqual({ ok: false, error: 'nextTooLarge' })
   })
 })

@@ -34,6 +34,12 @@ export function remainingToNext(rarity: Rarity, exp: number, cap: number): numbe
   return cumExp(rarity, lv + 1) - exp
 }
 
+// 「次のレベルまで」に入力できる最大値。現在の Lv が上限、または不明なら 0(入力不要)
+export function maxNextInput(rarity: Rarity, level: number, cap: number): number {
+  if (!Number.isInteger(level) || level < 1 || level >= cap) return 0
+  return cumExp(rarity, level + 1) - cumExp(rarity, level)
+}
+
 // 合成費用 = (160 + ベースの Lv × 40) × 素材の数
 export function mergeCost(baseLevel: number, count: number): number {
   return (160 + baseLevel * 40) * count
